@@ -75,3 +75,37 @@ if prompt := st.chat_input("Your response..."):
         error_message = f"An error occurred: {e}"
         st.error(error_message)
         st.session_state.messages.append({"role": "assistant", "content": error_message})
+        # --- Add a "Submit to Jotform" button at the end ---
+
+# First, we check if the conversation has at least a few messages
+if len(st.session_state.messages) > 3: 
+    st.write("---") # A separator line
+    st.write("Once the interview is complete, click the button below to save the report.")
+
+    # Create the button
+    if st.button("Prepare Report for Submission"):
+        # Combine the entire conversation into a single block of text
+        full_conversation = []
+        for message in st.session_state.messages:
+            full_conversation.append(f"**{message['role'].capitalize()}:**\n{message['content']}\n")
+        
+        report_text = "\n---\n".join(full_conversation)
+
+        # Get the Form ID and Unique Name from your secrets file
+        # Make sure to add these to your secrets.toml file!
+        try:
+            JOTFORM_FORM_ID = st.secrets["JOTFORM_FORM_ID"]
+            JOTFORM_UNIQUE_NAME = st.secrets["JOTFORM_UNIQUE_NAME"]
+
+            # URL-encode the report text
+            encoded_text = urllib.parse.quote(report_text)
+            
+            # Create the pre-filled URL
+            prefill_url = f"https://www.jotform.com/{JOTFORM_FORM_ID}?{JOTFORM_UNIQUE_NAME}={encoded_text}"
+            
+            # Display the link for the user to click
+            st.success("Report prepared! Click the link below to open and submit it in Jotform.")
+            st.markdown(f"**[Click Here to Open Your Pre-filled Form]({prefill_url})**", unsafe_allow_html=True)
+
+        except KeyError:
+            st.error("Jotform ID or Field Name not found in secrets. Please update your secrets.toml file.")

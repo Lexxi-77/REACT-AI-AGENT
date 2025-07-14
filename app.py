@@ -75,37 +75,40 @@ if prompt := st.chat_input("Your response..."):
         error_message = f"An error occurred: {e}"
         st.error(error_message)
         st.session_state.messages.append({"role": "assistant", "content": error_message})
-        # --- Add a "Submit to Jotform" button at the end ---
+     # --- Add a "Download Report" button at the end ---
+import pandas as pd
+from io import BytesIO
 
-# First, we check if the conversation has at least a few messages
+# We check if the conversation is long enough to be a report
 if len(st.session_state.messages) > 3: 
     st.write("---") # A separator line
-    st.write("Once the interview is complete, click the button below to save the report.")
+    st.write("Once the interview is complete, you can download the report as an Excel file.")
 
     # Create the button
-    if st.button("Prepare Report for Submission"):
-        # Combine the entire conversation into a single block of text
+    if st.button("Generate Excel Report"):
+        # We will structure the extracted data for the Excel file
+        # For simplicity, we'll put the whole conversation in one cell for now.
+        
         full_conversation = []
         for message in st.session_state.messages:
-            full_conversation.append(f"**{message['role'].capitalize()}:**\n{message['content']}\n")
+            full_conversation.append(f"{message['role'].capitalize()}: {message['content']}")
         
         report_text = "\n---\n".join(full_conversation)
 
-        # Get the Form ID and Unique Name from your secrets file
-        # Make sure to add these to your secrets.toml file!
-        try:
-            JOTFORM_FORM_ID = st.secrets["JOTFORM_FORM_ID"]
-            JOTFORM_UNIQUE_NAME = st.secrets["JOTFORM_UNIQUE_NAME"]
+        # Create a pandas DataFrame
+        from datetime import datetime
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+        df = pd.DataFrame([{"Report Date": timestamp, "Conversation Transcript": report_text}])
 
-            # URL-encode the report text
-            encoded_text = urllib.parse.quote(report_text)
-            
-            # Create the pre-filled URL
-            prefill_url = f"https://www.jotform.com/{JOTFORM_FORM_ID}?{JOTFORM_UNIQUE_NAME}={encoded_text}"
-            
-            # Display the link for the user to click
-            st.success("Report prepared! Click the link below to open and submit it in Jotform.")
-            st.markdown(f"**[Click Here to Open Your Pre-filled Form]({prefill_url})**", unsafe_allow_html=True)
-
-        except KeyError:
-            st.error("Jotform ID or Field Name not found in secrets. Please update your secrets.toml file.")
+        # Create an in-memory Excel file
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name='Report')
+        
+        # Provide the download button
+        st.download_button(
+            label="📥 Download Report",
+            data=output.getvalue(),
+            file_name=f"ai_report_{timestamp}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
